@@ -16,10 +16,30 @@ import (
 	"vqc/internal/tools"
 )
 
-var videoExts = map[string]bool{
-	".mxf": true, ".mov": true, ".mkv": true, ".avi": true, ".mp4": true,
-	".m4v": true, ".mpg": true, ".mpeg": true, ".ts": true, ".m2ts": true,
-	".wmv": true, ".vob": true, ".dv": true,
+// defaultVideoExts 는 spec 에 input.video_extensions 가 없을 때 쓰는 기본 목록.
+var defaultVideoExts = []string{
+	"mxf", "mov", "mkv", "avi", "mp4",
+	"m4v", "mpg", "mpeg", "ts", "m2ts",
+	"wmv", "vob", "dv",
+}
+
+// videoExtSet 은 검사 대상 확장자 집합을 만든다.
+// spec 의 input.video_extensions 를 우선 사용하고, 없으면 기본 목록으로 대체한다.
+// 확장자는 대소문자·선행 점(.) 유무와 무관하게 정규화한다.
+func videoExtSet(sp *spec.Spec) map[string]bool {
+	exts := sp.VideoExtensions()
+	if len(exts) == 0 {
+		exts = defaultVideoExts
+	}
+	set := make(map[string]bool, len(exts))
+	for _, e := range exts {
+		e = strings.ToLower(strings.TrimSpace(e))
+		e = strings.TrimPrefix(e, ".")
+		if e != "" {
+			set["."+e] = true
+		}
+	}
+	return set
 }
 
 // Options 는 검사 실행 옵션.
@@ -34,7 +54,9 @@ type Options struct {
 }
 
 // CollectFiles 는 파일/디렉토리에서 영상 파일 경로를 수집한다.
-func CollectFiles(target string) []string {
+// 수집 대상 확장자는 spec(input.video_extensions)으로 지정한다.
+// 단일 파일을 직접 지정하면 확장자와 무관하게 그 파일을 검사한다.
+func CollectFiles(target string, sp *spec.Spec) []string {
 	fi, err := os.Stat(target)
 	if err != nil {
 		return nil
@@ -43,12 +65,13 @@ func CollectFiles(target string) []string {
 		abs, _ := filepath.Abs(target)
 		return []string{abs}
 	}
+	exts := videoExtSet(sp)
 	var found []string
 	filepath.Walk(target, func(p string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() {
 			return nil
 		}
-		if videoExts[strings.ToLower(filepath.Ext(p))] {
+		if exts[strings.ToLower(filepath.Ext(p))] {
 			abs, _ := filepath.Abs(p)
 			found = append(found, abs)
 		}
@@ -95,7 +118,7 @@ func Run(target string, sp *spec.Spec, tl tools.Tools, opt Options) *model.Batch
 	batch.SpecMeta = sp.Meta()
 	batch.StartedAt = time.Now().UTC().Format(time.RFC3339)
 
-	all := CollectFiles(target)
+	all := CollectFiles(target, sp)
 	if len(all) == 0 {
 		batch.FinishedAt = time.Now().UTC().Format(time.RFC3339)
 		return batch

@@ -43,6 +43,7 @@ func Load(path string) (*Spec, error) {
 // ---- 섹션 접근 (모두 map[string]any 로 반환) ----
 
 func (s *Spec) Meta() map[string]any     { return s.section("meta") }
+func (s *Spec) Input() map[string]any    { return s.section("input") }
 func (s *Spec) Quality() map[string]any  { return s.section("quality") }
 func (s *Spec) Naming() map[string]any   { return s.section("naming") }
 func (s *Spec) Inventory() map[string]any { return s.section("inventory") }
@@ -54,6 +55,12 @@ func (s *Spec) section(key string) map[string]any {
 		return v
 	}
 	return map[string]any{}
+}
+
+// VideoExtensions 는 검사 대상 파일 확장자 목록(input.video_extensions)을 반환.
+// 미지정 시 nil 을 반환하며, 이 경우 엔진이 기본 목록으로 대체한다.
+func (s *Spec) VideoExtensions() []string {
+	return StrList(s.Input(), "video_extensions")
 }
 
 // ProfileFor 는 파일 상대경로에 맞는 프로파일 이름과 정의를 라우팅 규칙으로 결정.

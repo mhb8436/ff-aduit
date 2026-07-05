@@ -179,7 +179,7 @@ func cmdPlan(args []string) int {
 		fmt.Fprintf(os.Stderr, "[오류] %v\n", err)
 		return 2
 	}
-	files := engine.CollectFiles(pos[0])
+	files := engine.CollectFiles(pos[0], sp)
 	if len(files) == 0 {
 		fmt.Fprintln(os.Stderr, "영상 파일 없음.")
 		return 1
