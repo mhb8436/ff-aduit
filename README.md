@@ -77,18 +77,21 @@
 
 ## 설치와 실행
 
-프로그램은 실행 파일(`vqc.exe`) 하나로 되어 있어 설치 과정이 없습니다. 받은 파일을 원하는 폴더에 두고 바로 실행합니다. 별도 프로그램이나 FFmpeg를 깔 필요가 없습니다.
+프로그램은 실행 파일(`vqc.exe`) 하나로 되어 있어 설치 과정이 없습니다. 아래에서 파일을 내려받아 원하는 폴더에 두고 바로 실행합니다. 별도 프로그램이나 FFmpeg를 깔 필요가 없습니다.
+
+**내려받기**: [Releases 페이지](https://github.com/mhb8436/ff-aduit/releases/latest)에서 최신 `vqc.exe`를 받습니다.
 
 Windows에서 검사하는 순서는 이렇습니다.
 
-1. 검사할 영상을 한 폴더에 모읍니다. 예를 들어 `D:\납품`에 둡니다. 방송사별·매체별로 하위 폴더가 나뉘어 있어도 괜찮습니다.
-2. 시작 메뉴에서 `cmd`를 입력해 명령 프롬프트를 엽니다.
-3. `vqc.exe`를 둔 폴더로 이동합니다. 예: `cd /d C:\vqc`
-4. 다음 명령을 입력합니다.
+1. 받은 `vqc.exe`를 원하는 폴더에 둡니다. 예를 들어 `C:\vqc`에 둡니다.
+2. 검사할 영상을 한 폴더에 모읍니다. 예를 들어 `D:\납품`에 둡니다. 방송사별·매체별로 하위 폴더가 나뉘어 있어도 괜찮습니다.
+3. 시작 메뉴에서 `cmd`를 입력해 명령 프롬프트를 엽니다.
+4. `vqc.exe`를 둔 폴더로 이동합니다. 예: `cd /d C:\vqc`
+5. 다음 명령을 입력합니다.
    ```
    vqc.exe inspect D:\납품 --deep --report D:\결과
    ```
-5. 검사가 끝나면 `D:\결과` 폴더의 `vqc_report.xlsx`를 엑셀로 엽니다.
+6. 검사가 끝나면 `D:\결과` 폴더의 `vqc_report.xlsx`를 엑셀로 엽니다.
 
 대상으로는 영상이 든 최상위 폴더 하나만 지정하면 됩니다. 그 아래 하위 폴더까지 모두 뒤져 영상 파일을 찾으므로, 파일을 하나하나 나열할 필요가 없습니다. 폴더 대신 파일 하나를 지정하면 그 파일만 검사합니다. `vqc.exe`는 영상 폴더와 다른 곳에 두어도 되고, 결과를 저장할 폴더도 아무 데나 지정할 수 있습니다. 명령에서 대상 폴더 경로와 결과 폴더 경로만 정확히 적으면 됩니다.
 
@@ -123,17 +126,27 @@ pause
 ![검사 결과 엑셀 요약 시트(샘플 자료)](assets/vqc_report_excel.png)
 
 
-## 실행 파일 만들기 (담당자용)
+## 직접 빌드하기 (선택)
 
-일반 사용자는 이 과정을 할 필요 없이, 담당자가 만든 `vqc.exe` 파일만 받으면 됩니다. 프로그램을 직접 빌드하려면 Go가 설치된 PC(맥·리눅스·Windows 중 하나)가 필요합니다. 아래 순서로 Windows용 `vqc.exe`를 만듭니다.
+대부분은 위 Releases에서 `vqc.exe`를 받으면 되고, 이 과정은 필요하지 않습니다. 프로그램을 직접 만들려면 Go가 설치된 PC가 필요합니다([go.dev/dl](https://go.dev/dl)).
+
+Windows에서는 PowerShell로 만듭니다.
 
 ```
 cd goapp
-bash scripts/fetch_win_ffmpeg.sh   # FFmpeg 내장 자산 준비(처음 한 번)
-bash build_all.sh                  # dist/vqc.exe 생성
+powershell -ExecutionPolicy Bypass -File scripts\fetch_win_ffmpeg.ps1
+go build -o dist\vqc.exe .
 ```
 
-맥 한 대에서 Windows·맥·리눅스 실행 파일을 함께 만들 수 있습니다. 자세한 내용은 [`goapp/README.md`](goapp/README.md)를 참고합니다.
+맥·리눅스에서는 다음과 같이 만듭니다. 맥 한 대에서 Windows·맥·리눅스 실행 파일을 함께 만들 수 있습니다.
+
+```
+cd goapp
+bash scripts/fetch_win_ffmpeg.sh
+bash build_all.sh
+```
+
+자세한 내용은 [`goapp/README.md`](goapp/README.md)를 참고합니다.
 
 
 ## 부록: 검사 기준 예시

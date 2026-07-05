@@ -19,18 +19,28 @@ Windows 빌드는 ffmpeg/ffprobe 정적 바이너리를 **exe 안에 gzip 내장
 
 ## 빌드
 
+맥·리눅스:
+
 ```bash
 # (Windows exe 를 만들 때만) ffmpeg 내장 자산 준비 — 1회
 bash scripts/fetch_win_ffmpeg.sh
 
 # 전 플랫폼 빌드 → dist/
 bash build_all.sh
-#   dist/vqc.exe          (76MB, ffmpeg 내장, 단일 파일)
+#   dist/vqc.exe          (81MB, ffmpeg 내장, 단일 파일)
 #   dist/vqc-mac-arm64    (4MB, 시스템 ffmpeg 사용)
 #   dist/vqc-linux-amd64  (5MB, 시스템 ffmpeg 사용)
 
 # 개발 중 맥에서 바로 실행/테스트 (ffmpeg 는 brew 등으로 설치돼 있어야 함)
 go run . inspect ../samples --deep --no-sample --inventory ../samples/납품목록.csv --report out
+```
+
+Windows(PowerShell) — bash 가 없으므로 PowerShell 로 준비하고 `go build` 로 만든다:
+
+```powershell
+cd goapp
+powershell -ExecutionPolicy Bypass -File scripts\fetch_win_ffmpeg.ps1
+go build -o dist\vqc.exe .
 ```
 
 > Windows exe 만 단일 파일이고, 맥/리눅스 빌드는 시스템 ffmpeg 를 사용합니다.
