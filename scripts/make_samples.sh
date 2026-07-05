@@ -49,5 +49,24 @@ ffmpeg -y -v error \
   -c:v libx264 -pix_fmt yuv420p -b:v 5M -c:a aac -ar 48000 -ac 2 \
   "$OUT/서비스/영상클립001.mp4"
 
+echo "[6] 결함: 영상·음성 싱크 어긋남(오디오 478ms 지연) — A/V 싱크 FAIL 시연"
+ffmpeg -y -v error \
+  -f lavfi -i "testsrc2=size=1280x720:rate=30:duration=6" \
+  -itsoffset 0.5 -f lavfi -i "sine=frequency=440:sample_rate=48000:duration=6" \
+  -map 0:v -map 1:a -c:v libx264 -pix_fmt yuv420p -b:v 5M -c:a aac -ar 48000 -ac 2 \
+  "$OUT/서비스/KBS_D0004_20260104_SVC.mp4"
+
+echo "[7] 메타데이터 CSV(--metadata 대조용). 일부 오류를 일부러 넣어 검출을 시연"
+# 오류 시연: B0002 해상도 오기(1920x1080↔실측 720x576), A0001_SVC 제목 누락,
+#            영상클립001 방송일자 형식 오류(2026-13-05), D0004 코덱 오기(MPEG-2↔실측 h264)
+cat > "$OUT/메타데이터.csv" <<'CSV'
+파일명,제목,방송사명,방송일자,해상도,코덱,컨테이너,재생시간
+KBS_A0001_20260101_MST.mxf,뉴스광장 오프닝,KBS,20260101,720x576,MPEG-2,mxf,00:00:08
+KBS_B0002_20260102_MST.mxf,아침마당 1부,KBS,20260102,1920x1080,MPEG-2,mxf,00:00:21
+KBS_A0001_20260101_SVC.mp4,,KBS,20260101,1280x720,H.264,mp4,00:00:06
+영상클립001.mp4,자료영상 001,KBS,2026-13-05,1280x720,H.264,mp4,00:00:04
+KBS_D0004_20260104_SVC.mp4,단신 뉴스,KBS,20260104,1280x720,MPEG-2,mp4,00:00:06
+CSV
+
 echo "완료: $OUT"
 find "$OUT" -type f

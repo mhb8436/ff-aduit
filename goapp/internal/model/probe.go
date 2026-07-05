@@ -23,6 +23,7 @@ type Stream struct {
 	AvgFrameRate string `json:"avg_frame_rate"`
 	RFrameRate   string `json:"r_frame_rate"`
 	BitRate      string `json:"bit_rate"`
+	StartTime    string `json:"start_time"`
 	Channels     int    `json:"channels"`
 	SampleRate   string `json:"sample_rate"`
 }

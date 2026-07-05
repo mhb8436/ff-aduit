@@ -27,6 +27,7 @@ type Options struct {
 	Deep         bool
 	Sample       bool
 	InventoryCSV string
+	MetadataCSV  string
 	SampleRatio  float64
 	Seed         string
 	Progress     func(i, n int, path string)
@@ -83,6 +84,7 @@ func InspectFile(path string, sp *spec.Spec, tl tools.Tools, baseDir string, dee
 	checks.TechSpec(fr, probe, profile, sp, tl)
 	checks.VideoDefect(fr, probe, sp, tl, deep)
 	checks.AudioDefect(fr, probe, sp, tl, deep)
+	checks.AVSync(fr, probe, sp)
 	checks.FileNaming(fr, sp, baseDir)
 	return fr
 }
@@ -127,6 +129,8 @@ func Run(target string, sp *spec.Spec, tl tools.Tools, opt Options) *model.Batch
 	}
 
 	batch.Inventory = checks.Inventory(opt.InventoryCSV, batch.Files, sp, baseDir)
+	batch.Inventory = append(batch.Inventory,
+		checks.Metadata(opt.MetadataCSV, opt.InventoryCSV, batch.Files, sp)...)
 	batch.FinishedAt = time.Now().UTC().Format(time.RFC3339)
 	return batch
 }

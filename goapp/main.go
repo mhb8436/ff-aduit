@@ -81,6 +81,7 @@ inspect 옵션:
   --no-sample           표본검수 없이 전수검사
   --ratio <float>       표본 비율 강제(예: 0.1)
   --inventory <csv>     납품목록 CSV 대조
+  --metadata <csv>      메타데이터 CSV 대조(미지정 시 납품목록 재사용)
   --report <dir>        리포트 출력 디렉토리(html/csv/json)
   --spec <yaml>         검사기준 파일(기본: 내장 기준)
   --seed <str>          표본 재현용 시드(기본 kpf-2026)`)
@@ -92,6 +93,7 @@ func cmdInspect(args []string) int {
 	noSample := fs.Bool("no-sample", false, "전수검사")
 	ratio := fs.Float64("ratio", 0, "표본 비율 강제")
 	inv := fs.String("inventory", "", "납품목록 CSV")
+	meta := fs.String("metadata", "", "메타데이터 CSV(미지정 시 납품목록 재사용)")
 	rep := fs.String("report", "", "리포트 디렉토리")
 	specPath := fs.String("spec", "", "검사기준 YAML")
 	seed := fs.String("seed", "kpf-2026", "표본 시드")
@@ -115,7 +117,7 @@ func cmdInspect(args []string) int {
 
 	fmt.Printf("영상 검사 시작: %s\n", target)
 	batch := engine.Run(target, sp, tl, engine.Options{
-		Deep: *deep, Sample: !*noSample, InventoryCSV: *inv,
+		Deep: *deep, Sample: !*noSample, InventoryCSV: *inv, MetadataCSV: *meta,
 		SampleRatio: *ratio, Seed: *seed,
 		Progress: func(i, n int, p string) {
 			fmt.Printf("  [%d/%d] 검사 중: %s\n", i, n, filepath.Base(p))

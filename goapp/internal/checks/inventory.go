@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -110,6 +111,102 @@ func Inventory(inventoryCSV string, files []*model.FileReport, sp *spec.Spec, ba
 
 	// 3) 재생시간 정합성
 	out = append(out, checkDuration(rows, header, files, invCfg))
+
+	// 4) 원본자료ID ↔ 변환파일 매핑 정합성
+	out = append(out, checkAssetMapping(rows, header, files, invCfg)...)
+	return out
+}
+
+// checkAssetMapping 은 원본자료ID와 변환파일 간 매핑 정합성을 점검한다.
+// RFP 중점점검(디지털 변환-매핑관리): "원본자료ID, 파일명 ... 매핑 정합성".
+//
+// 두 가지를 대조한다.
+//  1. 목록 각 행의 자료ID 컬럼이 비어 있지 않은지(매핑 누락).
+//  2. 파일명에 내장된 자료ID(명명규칙: 방송사코드_자료ID_YYYYMMDD_구분)가
+//     목록에 기재된 자료ID와 일치하는지(파일-목록 매핑 불일치).
+func checkAssetMapping(rows map[string]invRow, header []string, files []*model.FileReport, cfg map[string]any) []model.CheckResult {
+	var out []model.CheckResult
+
+	idCol := pickColumnName(header, spec.StrList(cfg, "id_columns"))
+	if idCol == "" {
+		out = append(out, model.CheckResult{CheckID: "inventory.mapping", Category: catInv,
+			Title: "원본-변환 매핑", Severity: model.Skip,
+			Message: fmt.Sprintf("납품목록에 자료ID 컬럼이 없어 매핑 대조를 생략합니다(후보: %v).", spec.StrList(cfg, "id_columns"))})
+		return out
+	}
+
+	// (1) 자료ID 누락 행
+	var noID []string
+	for name, row := range rows {
+		if strings.TrimSpace(row[idCol]) == "" {
+			noID = append(noID, name)
+		}
+	}
+	sort.Strings(noID)
+	{
+		sev := model.Pass
+		msg := "목록 모든 행에 자료ID가 기재됨."
+		if len(noID) > 0 {
+			sev = model.Warn
+			msg = fmt.Sprintf("자료ID가 비어 있는 목록 행 %d건: %v. 원본-변환 매핑 근거 누락.", len(noID), clip(noID, 10))
+		}
+		out = append(out, model.CheckResult{CheckID: "inventory.mapping.id_missing", Category: catInv,
+			Title: "자료ID 기재(매핑 근거)", Severity: sev, Message: msg,
+			Actual: fmt.Sprintf("누락 %d건", len(noID))})
+	}
+
+	// (2) 파일명 내장 자료ID ↔ 목록 자료ID 일치
+	pattern := spec.Str(cfg, "id_in_filename")
+	if pattern == "" {
+		out = append(out, model.CheckResult{CheckID: "inventory.mapping.filename_id", Category: catInv,
+			Title: "파일명-목록 자료ID 일치", Severity: model.Skip,
+			Message: "파일명에서 자료ID를 추출할 규칙(inventory.id_in_filename)이 없어 대조를 생략합니다."})
+		return out
+	}
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		out = append(out, model.CheckResult{CheckID: "inventory.mapping.filename_id", Category: catInv,
+			Title: "파일명-목록 자료ID 일치", Severity: model.Error,
+			Message: fmt.Sprintf("자료ID 추출 정규식이 잘못되었습니다: %v", err)})
+		return out
+	}
+
+	var mism []map[string]any
+	var unextractable []string
+	for _, f := range files {
+		name := strings.ToLower(filepath.Base(f.Path))
+		row, ok := rows[name]
+		if !ok {
+			continue // 목록 미등재는 inventory.unlisted 에서 별도 지적
+		}
+		m := re.FindStringSubmatch(filepath.Base(f.Path))
+		if len(m) < 2 {
+			unextractable = append(unextractable, filepath.Base(f.Path))
+			continue
+		}
+		fileID := strings.TrimSpace(m[1])
+		listedID := strings.TrimSpace(row[idCol])
+		if listedID != "" && !strings.EqualFold(fileID, listedID) {
+			mism = append(mism, map[string]any{
+				"file": filepath.Base(f.Path), "filename_id": fileID, "listed_id": listedID})
+		}
+	}
+	sort.Strings(unextractable)
+	{
+		sev := model.Pass
+		msg := "파일명 내장 자료ID가 납품목록 자료ID와 모두 일치."
+		if len(mism) > 0 {
+			sev = model.Fail
+			msg = fmt.Sprintf("파일명-목록 자료ID 불일치 %d건. 원본-변환 매핑 오류 — 잘못된 원본에 연결되었을 수 있습니다.", len(mism))
+		} else if len(unextractable) > 0 {
+			sev = model.Warn
+			msg = fmt.Sprintf("파일명에서 자료ID를 추출하지 못한 파일 %d건: %v. 명명규칙 확인 필요.", len(unextractable), clip(unextractable, 10))
+		}
+		out = append(out, model.CheckResult{CheckID: "inventory.mapping.filename_id", Category: catInv,
+			Title: "파일명-목록 자료ID 일치", Severity: sev, Message: msg,
+			Actual:   fmt.Sprintf("불일치 %d건", len(mism)),
+			Evidence: map[string]any{"mismatches": clip(mism, 30), "unextractable": clip(unextractable, 20)}})
+	}
 	return out
 }
 

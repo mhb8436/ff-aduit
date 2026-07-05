@@ -107,6 +107,12 @@ quality:
       enabled: true
       pillarbox_warn_ratio: 0.20  # 좌우 검은띠가 화면폭의 20% 초과면 WARN
 
+  # 영상·음성 싱크(동기) 불일치: 스트림별 start_time(시작 오프셋) 차이로 판정
+  av_sync:
+    enabled: true
+    warn_offset_ms: 100         # 시작 오프셋 100ms 초과면 WARN(립싱크 확인)
+    fail_offset_ms: 400         # 400ms 초과면 FAIL(재정렬/재변환 필요)
+
   audio:
     # 무음 구간 검출: silencedetect
     silencedetect:
@@ -143,6 +149,30 @@ inventory:
   duration_columns: ['재생시간', 'duration', '길이', 'runtime']
   # 목록상 duration과 실측 duration 허용 오차(초)
   duration_tolerance_sec: 2.0
+  # 파일명에 내장된 자료ID 추출 정규식(캡처그룹 1 = 자료ID).
+  # 명명규칙 예: 방송사코드_자료ID_YYYYMMDD_구분.확장자
+  # → 파일명 내장 자료ID 와 목록 자료ID 일치 여부(원본-변환 매핑)를 대조한다.
+  id_in_filename: '^[A-Za-z0-9]+_([A-Za-z0-9\-]+)_\d{8}_'
+
+# =============================================================================
+#  메타데이터 정합성 규칙 — 메타데이터 CSV(또는 납품목록의 메타 컬럼)를
+#  실제 파일(ffprobe 실측)과 대조한다.
+# =============================================================================
+metadata:
+  enabled: true
+  filename_columns: ['파일명', 'filename', 'file', '파일']
+  # 반드시 입력되어야 하는 표준 메타데이터 항목(비면 FAIL)
+  required_columns: ['제목', '방송사명', '방송일자']
+  # 날짜 형식 검증 대상 컬럼 및 허용 형식(YYYY/MM/DD/HH/mm/SS 토큰)
+  date_columns: ['방송일자', '제작일자']
+  date_formats: ['YYYYMMDD', 'YYYY-MM-DD', 'YYYY.MM.DD', 'YYYY/MM/DD']
+  # 시스템(자동추출) 메타데이터 ↔ ffprobe 실측 대조 컬럼 매핑
+  system_check:
+    resolution_column: '해상도'      # 예: "1920x1080"
+    codec_column: '코덱'             # 예: "H.264", "MPEG-2"
+    container_column: '컨테이너'     # 예: "mp4", "mxf", "QuickTime"
+    duration_column: '재생시간'      # HH:MM:SS 또는 초
+    duration_tolerance_sec: 2.0
 
 # =============================================================================
 #  표본검수(샘플링) 기본 파라미터 — 감리계획서 명시용

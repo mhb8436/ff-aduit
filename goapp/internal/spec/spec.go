@@ -46,7 +46,8 @@ func (s *Spec) Meta() map[string]any     { return s.section("meta") }
 func (s *Spec) Quality() map[string]any  { return s.section("quality") }
 func (s *Spec) Naming() map[string]any   { return s.section("naming") }
 func (s *Spec) Inventory() map[string]any { return s.section("inventory") }
-func (s *Spec) Sampling() map[string]any { return s.section("sampling") }
+func (s *Spec) Metadata() map[string]any  { return s.section("metadata") }
+func (s *Spec) Sampling() map[string]any  { return s.section("sampling") }
 
 func (s *Spec) section(key string) map[string]any {
 	if v, ok := s.data[key].(map[string]any); ok {
