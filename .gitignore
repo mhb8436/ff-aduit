@@ -1,0 +1,10 @@
+# 데모/검증 산출물
+samples/
+out/
+.DS_Store
+
+# --- Go (goapp) ---
+goapp/dist/
+goapp/build/
+# 내장용 ffmpeg 자산(대용량) — scripts/fetch_win_ffmpeg.sh 로 생성
+goapp/internal/tools/assets/windows/*.exe.gz

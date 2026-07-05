@@ -1,0 +1,157 @@
+# =============================================================================
+#  방송자료 디지털화 영상 검사 기준(납품 규격) — 감리용 기본 프로파일
+# -----------------------------------------------------------------------------
+#  감리는 "발주기관이 정한 납품 규격 대비 준수 여부"를 점검하는 활동이므로,
+#  검사 기준값은 코드에 하드코딩하지 않고 이 파일로 외부화한다.
+#  → 사업수행사의 작업지침서/납품규격이 확정되면 이 파일만 교체하면 된다.
+#
+#  값의 의미
+#   - 리스트: 허용 목록(allow-list). 목록에 없으면 FAIL.
+#   - min/max: 허용 범위. 벗어나면 FAIL(경계 근접은 WARN).
+#   - null   : 검사하지 않음(해당 항목 미적용).
+# =============================================================================
+
+meta:
+  project: "2026년 방송자료 디지털화 지원 사업"
+  authority: "한국언론진흥재단"
+  spec_version: "1.0(감리 기본안 — 사업 납품규격 확정 시 갱신)"
+
+# 파일별로 어떤 프로파일을 적용할지 판단하는 규칙(우선순위 순).
+# 파일 상대경로/이름에 대한 정규식이 매칭되면 해당 프로파일을 적용한다.
+routing:
+  rules:
+    - pattern: '(?i)(master|preservation|보존|마스터)'
+      profile: preservation_master
+    - pattern: '(?i)(service|access|proxy|서비스|열람|저해상)'
+      profile: access_copy
+  # 매칭되는 규칙이 없으면 default_profile 적용
+  default_profile: preservation_master
+
+profiles:
+  # -------------------------------------------------------------------------
+  # 보존용 마스터: 장기보존 목적. 무손실/저압축, 방송 규격 유지.
+  # -------------------------------------------------------------------------
+  preservation_master:
+    label: "보존용 마스터"
+    container: [mxf, mov, mkv, avi]        # 허용 컨테이너
+    video:
+      codec: [ffv1, mpeg2video, prores, dvvideo, v210, rawvideo]
+      width:  { min: 640,  max: 1920 }
+      height: { min: 480,  max: 1080 }
+      # 표준정의(SD 720x576/720x480) 및 HD(1920x1080) 허용
+      frame_rate: [25, 29.97, 30, 50, 59.94]   # 방송 표준 프레임레이트
+      scan: [interlaced, progressive]           # SD 원본은 인터레이스 허용
+      pixel_format: null                        # 마스터는 포맷 제한 완화
+      min_bitrate_mbps: 20        # 이보다 낮으면 과압축 의심(WARN/FAIL)
+      max_bitrate_mbps: null
+    audio:
+      codec: [pcm_s16le, pcm_s24le, pcm_s16be, pcm_s24be, mp2, aac]
+      channels: [1, 2]            # 모노/스테레오
+      min_sample_rate: 48000      # 방송 표준 48kHz
+      min_channels: 1
+
+  # -------------------------------------------------------------------------
+  # 활용/서비스용 열람본: H.264 기반 배포용.
+  # -------------------------------------------------------------------------
+  access_copy:
+    label: "활용/서비스용"
+    container: [mp4, mov]
+    video:
+      codec: [h264]
+      width:  { min: 480,  max: 1920 }
+      height: { min: 360,  max: 1080 }
+      frame_rate: [25, 29.97, 30, 50, 59.94]
+      scan: [progressive]         # 서비스본은 디인터레이스 필수
+      pixel_format: [yuv420p]
+      min_bitrate_mbps: 2
+      max_bitrate_mbps: 20
+    audio:
+      codec: [aac]
+      channels: [1, 2]
+      min_sample_rate: 44100
+      min_channels: 1
+
+# =============================================================================
+#  화질·음질 결함 검출 임계값(프로파일 공통). ffmpeg 필터 파라미터.
+# =============================================================================
+quality:
+  # 무결성: 디코드 오류가 이 개수를 넘으면 FAIL
+  integrity:
+    max_decode_errors: 0
+    warn_decode_errors: 0
+
+  video:
+    # 블랙 프레임(무영상 구간) 검출: blackdetect
+    blackdetect:
+      enabled: true
+      black_min_duration: 2.0     # 초. 2초 이상 연속 블랙이면 결함 후보
+      picture_black_ratio: 0.98   # 프레임 내 검은 픽셀 비율
+      pixel_black_threshold: 0.10
+      warn_total_ratio: 0.02      # 전체 길이 대비 블랙 누적 비율 WARN
+      fail_total_ratio: 0.05      # FAIL
+      # 단, 정상적인 시작/종료 블랙(각 max_edge_sec 이내)은 제외
+      max_edge_sec: 5.0
+    # 프리즈 프레임(정지/멈춤) 검출: freezedetect
+    freezedetect:
+      enabled: true
+      noise_db: -60               # 프레임 간 차이 임계(dB)
+      freeze_min_duration: 3.0    # 3초 이상 정지면 결함 후보
+    # 신호 통계(색/휘도 이상): signalstats — YUV 범위 이탈, 저채도 등
+    signalstats:
+      enabled: true
+      # YMIN/YMAX 등 방송 안전 범위 점검(디지털 풀레인지 이탈 감시)
+      luma_low_warn: 16           # 방송 흑레벨
+      luma_high_warn: 235         # 방송 백레벨
+    # 레터박스/필러박스 과다(변환 시 종횡비 오류) 검출: cropdetect
+    cropdetect:
+      enabled: true
+      pillarbox_warn_ratio: 0.20  # 좌우 검은띠가 화면폭의 20% 초과면 WARN
+
+  audio:
+    # 무음 구간 검출: silencedetect
+    silencedetect:
+      enabled: true
+      noise_db: -50               # 이보다 작으면 무음으로 판단
+      silence_min_duration: 3.0
+      warn_total_ratio: 0.05      # 전체 길이 대비 무음 비율 WARN
+      fail_total_ratio: 0.20      # 완전 무음(오디오 유실) 수준이면 FAIL
+      max_edge_sec: 3.0
+    # 라우드니스/피크: ebur128 + astats
+    loudness:
+      enabled: true
+      target_lufs: -23.0          # EBU R128 방송 표준
+      lufs_tolerance: 6.0         # ±허용
+      max_true_peak_dbtp: -1.0    # 트루피크 상한
+      clip_warn_ratio: 0.001      # 클리핑 샘플 비율 WARN
+
+# =============================================================================
+#  파일명/폴더구조/납품목록 정합성 규칙
+# =============================================================================
+naming:
+  # 파일명 규칙(정규식). 사업 명명규칙이 확정되면 교체.
+  # 예: 방송사코드_자료ID_YYYYMMDD_구분.확장자
+  filename_pattern: '^[A-Za-z0-9]+_[A-Za-z0-9\-]+_\d{8}_(MST|SVC|master|service)\.[A-Za-z0-9]+$'
+  # 파일명에 허용하지 않는 문자(윈도우/유닉스 호환, 공백/한글 등)
+  forbidden_chars: " %#&{}<>*?$!:@+`|=\"'"
+  allowed_extensions: [mxf, mov, mkv, avi, mp4]
+  max_path_length: 200
+
+inventory:
+  # 납품목록(엑셀→CSV) 대조 시 사용할 키 컬럼명 후보(대소문자 무시)
+  id_columns: ['자료ID', 'id', '자료번호', 'assetid', 'asset_id']
+  filename_columns: ['파일명', 'filename', 'file', '파일']
+  duration_columns: ['재생시간', 'duration', '길이', 'runtime']
+  # 목록상 duration과 실측 duration 허용 오차(초)
+  duration_tolerance_sec: 2.0
+
+# =============================================================================
+#  표본검수(샘플링) 기본 파라미터 — 감리계획서 명시용
+# =============================================================================
+sampling:
+  method: stratified            # 층화 표본(방송사/매체/프로파일 기준 층화)
+  confidence_level: 0.95        # 신뢰수준
+  margin_of_error: 0.05         # 허용 오차
+  min_per_stratum: 2            # 층별 최소 표본 수
+  full_inspect_below: 30        # 모집단이 이 수 이하이면 전수검사
+  # RFP 명시: DB 검수 8% 이상 → 표본 하한을 8%로 강제
+  min_ratio: 0.08
